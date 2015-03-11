@@ -1,0 +1,53 @@
+//right motor is B
+//left motor is C
+//light sensor is port 1
+//left b is port 3
+//right b is port 2
+
+
+task main() {
+
+
+startPosition();
+followTiles();
+}
+
+     task startPosition(){
+     setSensorLight(IN_1); // set light sensor
+     OnFwd(OUT_BC, 20);
+     while(true) {
+                 if(Sensor(IN_1) > THRESHOLD){ //calibrated light sensor
+                                OnFwd(OUT_BC,20);
+                                until(Sensor(IN_1)<=THRESHOLD);
+                                Off(OUT_BC);
+                                PlayTone(262,400); //beep
+                                RotateMotor(OUT_B,50,90);
+                               
+                                }
+                  }
+           }
+
+     
+}
+
+     task followTiles(){
+          bool onBlack = Sensor(IN_1)<THRESHOLD;
+          int blackCount = 1;
+          while (blackCount<16){
+                if (onBlack){
+                   OnFwd(OUT_BC, 20);
+                   until(Sensor(IN_1)>THRESHOLD);
+                   Off(OUT_BC);
+                   onBlack = false;
+                }else{
+                   OnFwd(OUT_BC, 20);
+                   until(Sensor(IN_1)<THRESHOLD);
+                   Off(OUT_BC);
+                   onBlack = true;
+                   blackCount++;
+                   PlayTone(262,400);
+                }
+
+          }
+     }
+     
