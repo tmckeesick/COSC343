@@ -4,50 +4,91 @@
 //left b is port 3
 //right b is port 2
 
+sub calibrate(){
+     int dark = SENSOR_1; //get a reading and store in vari dark
+     TextOut(15,LCD_LINE2,"dark");
+     NumOut(15,LCD_LINE3,dark);
+     while (SENSOR_1 <= dark){
+     	   OnFwd(OUT_BC,15);//move fwd until light >dark
+	   TextOut(15,LCD_LINE4,"current");
+	   NumOut(15,LCD_LINE5,SENSOR_1);
+     }
+    
+     int light = SENSOR_1;//get that reading and store light reading
+     //in var light
+     TextOut(15,LCD_LINE6,"light");
+     NumOut(15,LCD_LINE7,light);
+     while (SENSOR_1 >= light){
+     	   OnFwd(OUT_BC,15);//mve fwd until <light
+	   TextOut(15,LCD_LINE4,"current");
+	   NumOut(15,LCD_LINE5,SENSOR_1);
+     }
+     PlayTone(262,400); //meep meep
+     dark = SENSOR_1;//get reading and update to the new dark value 
+     TextOut(15,LCD_LINE2,"dark");
+     NumOut(15,LCD_LINE3,dark);
+     TextOut(15,LCD_LINE4,"light");
+     NumOut(15,LCD_LINE5,light);
+     Wait(500);
 
-task main() {
 
-
-startPosition();
-followTiles();
 }
 
-     task startPosition(){
-     setSensorLight(IN_1); // set light sensor
+sub calibrate2() {
+    TextOut(15,LCD_LINE2,"Light?");
+    if(SENSOR_2 == 1) {
+    	int light = SENSOR_1;
+	TextOut(15,LCD_LINE3,"light = ");
+	NumOut(15,LCD_LINE4,light);
+    }
+    TextOut(15,LCD_LINE2,"Black?");
+    if(SENSOR_3 == 1) {
+    	int dark = SENSOR_1;
+	TextOut(15,LCD_LINE3,"dark = ");
+	NumOut(15,LCD_LINE5,dark);
+    }
+}
+
+/*
+
+sub startPosition(){
      OnFwd(OUT_BC, 20);
      while(true) {
-                 if(Sensor(IN_1) > THRESHOLD){ //calibrated light sensor
-                                OnFwd(OUT_BC,20);
-                                until(Sensor(IN_1)<=THRESHOLD);
-                                Off(OUT_BC);
-                                PlayTone(262,400); //beep
-                                RotateMotor(OUT_B,50,90);
-                               
-                                }
-                  }
-           }
-
-     
+     		 if(Sensor(IN_1) > THRESHOLD){ //calibrated light sensor
+		 		 OnFwd(OUT_BC,20);
+				 until(Sensor(IN_1)<=THRESHOLD);
+				 Off(OUT_BC);
+				 PlayTone(262,400); //beep
+				 RotateMotor(OUT_B,50,90);
+		 }
+     }
 }
 
-     task followTiles(){
-          bool onBlack = Sensor(IN_1)<THRESHOLD;
-          int blackCount = 1;
-          while (blackCount<16){
-                if (onBlack){
-                   OnFwd(OUT_BC, 20);
-                   until(Sensor(IN_1)>THRESHOLD);
-                   Off(OUT_BC);
-                   onBlack = false;
-                }else{
-                   OnFwd(OUT_BC, 20);
-                   until(Sensor(IN_1)<THRESHOLD);
-                   Off(OUT_BC);
-                   onBlack = true;
-                   blackCount++;
-                   PlayTone(262,400);
-                }
+sub followTiles(){
+     bool onBlack = Sensor(IN_1)<THRESHOLD;
+     int blackCount = 1;
+     while (blackCount<16){
+     	   if (onBlack){
+	      OnFwd(OUT_BC, 20);
+	      until(Sensor(IN_1)>THRESHOLD);
+	      Off(OUT_BC);
+	      onBlack = false;
+	   }else{
+		OnFwd(OUT_BC, 20);
+		until(Sensor(IN_1)<THRESHOLD);
+		Off(OUT_BC);
+		onBlack = true;
+		blackCount++;
+		PlayTone(262,400);
+	   }
 
-          }
-     }
-     
+      }
+}
+*/
+
+task main() {
+     SetSensorLight(IN_1); // set light sensor
+     calibrate2();
+//     startPosition();
+//     followTiles();
+}
