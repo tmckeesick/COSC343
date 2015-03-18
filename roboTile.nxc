@@ -7,10 +7,10 @@
 int light = 0;
 int dark = 0;
 int midpoint = 0;
+int numBlackTiles = 0;
 
 
-
-sub calibrate2() {
+sub calibrate() {
     TextOut(15,LCD_LINE2,"Light?");
     until(SENSOR_2 == 1); 
     light = SENSOR_1;
@@ -27,13 +27,20 @@ sub calibrate2() {
     //calculate midpoint
     //+dark b/c midpoint between dark and light (not 0 and whatever)
     midpoint = ((light - dark) / 2) + dark;
-    
+
+    ClearScreen();
+
     TextOut(15,LCD_LINE6,"Midpoint = ");
     NumOut(15,LCD_LINE7,midpoint);
     Wait(5000);
+    
+    
 }
 
-
+sub printCurrent(){
+    TextOut(15,LCD_LINE1,"Current");
+    NumOut(15,LCD_LINE2,Sensor(IN_1));
+}
 
 sub startPosition(){
     bool onBlack = false;
@@ -41,48 +48,54 @@ sub startPosition(){
     while(!onBlack) {	//continuously check light sensor
     	TextOut(15,LCD_LINE2,"Current = ");
 	NumOut(15,LCD_LINE3,SENSOR_1);
-
      	if(Sensor(IN_1) <= midpoint){  //calibrated light sensor
-//		OnFwd(OUT_BC,20);
-//		until(Sensor(IN_1)  midpoint);
-		
 		OnFwd(OUT_BC,0);//makeitstop
 		Wait(1000);
 		PlayTone(262,400); //beep
 		onBlack = true;
 	}
      }
-     Wait(1000);
-     RotateMotor(OUT_B,50,120);
+     Wait(3000);
 }
-/*
-sub followTiles(){
-     bool onBlack = Sensor(IN_1)<THRESHOLD;
-     int blackCount = 1;
-     while (blackCount<16){
-     	   if (onBlack){
-	      OnFwd(OUT_BC, 20);
-	      until(Sensor(IN_1)>THRESHOLD);
-	      Off(OUT_BC);
-	      onBlack = false;
-	   }else{
-		OnFwd(OUT_BC, 20);
-		until(Sensor(IN_1)<THRESHOLD);
-		Off(OUT_BC);
-		onBlack = true;
-		blackCount++;
-		PlayTone(262,400);
-	   }
 
-      }
+sub moveOneBlackTile(){
+    bool onBlack = false;
+    if(Sensor(IN_1)<midpoint) onBlack = true;
+   
+    while(onBlack) {
+    	printCurrent();
+       	  OnFwd(OUT_BC,10);
+	  if (Sensor(IN_1)>=midpoint){
+	     onBlack = false;
+	  }
+    }
+
+    Wait(1000);
+       //at this point it should be at the beginning of a white tile,
+       	 // and we should adjust for positioning
+
 }
-*/
+
+sub moveOneWhiteTile() {
+    bool onWhite = false;
+    if(Sensor(IN_1) >= midpoint) onWhite = true;
+
+    while (onWhite){
+       	  OnFwd(OUT_BC,15);
+	  if (Sensor(IN_1)<midpoint){
+	     onWhite = false;
+	  }
+    }
+       //at this point it should be at the beginning of a black tile
+    Wait(1000);
+}
 
 task main() {
      SetSensorLight(IN_1); // set light sensor
      SetSensor(IN_2,SENSOR_TOUCH); //need to set the touch sensors!
      SetSensor(IN_3,SENSOR_TOUCH);
-     calibrate2();
+     calibrate();
      startPosition();
-//     followTiles();
+     moveOneBlackTile();
+//     moveOneWhiteTile();
 }
