@@ -6,96 +6,70 @@
 
 int light = 0;
 int dark = 0;
-int midpoint = 0;
 int numBlackTiles = 0;
+int offSetDark=5;
+int offSetLight=10;
 
 
 sub calibrate() {
-    TextOut(15,LCD_LINE2,"Light?");
-    until(SENSOR_2 == 1); 
-    light = SENSOR_1;
-    TextOut(15,LCD_LINE3,"light = ");
-    NumOut(15,LCD_LINE4,light);
-    
-    TextOut(15,LCD_LINE2,"Black?");
-    until(SENSOR_3 == 1);
-    dark = SENSOR_1;
-    TextOut(15,LCD_LINE3,"dark = ");
-    NumOut(15,LCD_LINE5,dark);
-    Wait(1000);
+TextOut(15,LCD_LINE2,"Light?");
+until(SENSOR_2 == 1); 
+light = SENSOR_1;
+light=light-offSetLight;
 
-    //calculate midpoint
-    //+dark b/c midpoint between dark and light (not 0 and whatever)
-    midpoint = ((light - dark) / 2) + dark;
 
-    ClearScreen();
+TextOut(15,LCD_LINE2," light = ");
+NumOut(15,LCD_LINE3,light);
 
-    TextOut(15,LCD_LINE6,"Midpoint = ");
-    NumOut(15,LCD_LINE7,midpoint);
-    Wait(5000);
-    
-    
-}
+TextOut(15,LCD_LINE5,"Black?");
+until(SENSOR_3 == 1);
+dark = SENSOR_1;
+dark=dark+offSetDark;
 
-sub printCurrent(){
-    TextOut(15,LCD_LINE1,"Current");
-    NumOut(15,LCD_LINE2,Sensor(IN_1));
+TextOut(15,LCD_LINE5," dark = ");
+NumOut(15,LCD_LINE6,dark);
+Wait(5000);
 }
 
 sub startPosition(){
-    bool onBlack = false;
-    OnFwd(OUT_BC, 20);
-    while(!onBlack) {	//continuously check light sensor
-    	TextOut(15,LCD_LINE2,"Current = ");
-	NumOut(15,LCD_LINE3,SENSOR_1);
-     	if(Sensor(IN_1) <= midpoint){  //calibrated light sensor
-		OnFwd(OUT_BC,0);//makeitstop
-		Wait(1000);
-		PlayTone(262,400); //beep
-		onBlack = true;
-	}
-     }
-     Wait(3000);
+bool onBlack = false;
+OnFwd(OUT_BC, 20);
+while(!onBlack) {	//continuously check light sensor
+TextOut(15,LCD_LINE6,"Current = ");
+NumOut(15,LCD_LINE7,SENSOR_1);
+if(Sensor(IN_1) <= dark){  //calibrated light sensor
+OnFwd(OUT_BC,0);//makeitstop
+Wait(1000);
+PlayTone(262,400); //beep
+onBlack = true;
+}
+}
+Wait(3000);
 }
 
 sub moveOneBlackTile(){
-    bool onBlack = false;
-    if(Sensor(IN_1)<midpoint) onBlack = true;
-   
-    while(onBlack) {
-    	printCurrent();
-       	  OnFwd(OUT_BC,10);
-	  if (Sensor(IN_1)>=midpoint){
-	     onBlack = false;
-	  }
-    }
+bool onBlack = false;
+if(Sensor(IN_1)<=dark) onBlack = true;
 
-    Wait(1000);
-       //at this point it should be at the beginning of a white tile,
-       	 // and we should adjust for positioning
+while(onBlack) {
+OnFwd(OUT_BC,10);
+if (Sensor(IN_1)>=light){
+onBlack = false;
+}
+}
+OnFwd(OUT_BC,0);//makeitstop
+PlayTone(262,400);
+Wait(1000);
+
 
 }
 
-sub moveOneWhiteTile() {
-    bool onWhite = false;
-    if(Sensor(IN_1) >= midpoint) onWhite = true;
-
-    while (onWhite){
-       	  OnFwd(OUT_BC,15);
-	  if (Sensor(IN_1)<midpoint){
-	     onWhite = false;
-	  }
-    }
-       //at this point it should be at the beginning of a black tile
-    Wait(1000);
+task main(){
+SetSensorLight(IN_1); // set light sensor
+SetSensor(IN_2,SENSOR_TOUCH); //need to set the touch sensors!
+SetSensor(IN_3,SENSOR_TOUCH);
+calibrate();
+startPosition();
+moveOneBlackTile();
 }
 
-task main() {
-     SetSensorLight(IN_1); // set light sensor
-     SetSensor(IN_2,SENSOR_TOUCH); //need to set the touch sensors!
-     SetSensor(IN_3,SENSOR_TOUCH);
-     calibrate();
-     startPosition();
-     moveOneBlackTile();
-//     moveOneWhiteTile();
-}
