@@ -7,6 +7,7 @@
 int light = 0;
 int dark = 0;
 int numBlack = 0;
+int numWhite = 0;
 int offSetDark=5;
 int offSetLight=10;
 int alphaL = 1; //for use with power on left motor
@@ -101,6 +102,7 @@ sub startPosition(){
 }
 
 sub crossWhiteTile(){
+  //numWhite++;
   bool onWhite = false;
   if (Sensor(IN_1)>=light) onWhite = true;
   while(onWhite){
@@ -124,8 +126,21 @@ sub crossBlackTiles(){
       onBlack = false;
     }
   }
-  crossWhiteTile();
+  if (numWhite<13){
+     numWhite++;
+     crossWhiteTile();
+  }
+  OnFwd(OUT_BC,0);
 }
+    
+sub crossGrey(){
+    //need new subroutine to finish!
+    PlayTone(262,400);
+    correction();
+    crossBlackTiles();
+}
+
+
 
 task main(){
    SetSensorLight(IN_1); // set light sensor
@@ -137,4 +152,12 @@ task main(){
    while(numBlack<15){
 	crossBlackTiles();
    }
+   
+   OnRev(OUT_BC,30);
+   Wait(500);
+   Coast(OUT_BC);
+   RotateMotor(OUT_C,power,angle90);
+   Wait(1000);
+   crossGrey();
+   
 }
