@@ -8,6 +8,7 @@ int light = 0;
 int dark = 0;
 int numBlack = 0;
 int numWhite = 0;
+int numGrey = 0;
 int offSetDark=5;
 int offSetLight=10;
 int alphaL = 1; //for use with power on left motor
@@ -36,6 +37,8 @@ sub calibrate() {
   Wait(7000);
 }
 
+/*********************************************************************
+//THIS ONE ONLY CHECKS FOR BLACK TILES
 int checkPos(byte outputs){
   long angle = 40;
   int pow = 30;
@@ -58,19 +61,55 @@ int checkPos(byte outputs){
   return counter;
 
 }
+**************************************/
+
+int checkPos(byte outputs){
+  long angle = 30; //works for first part when angle=40
+  int pow = 30;
+  int counter = 0;
+  bool onBlack;
+  if (Sensor(IN_1)<=dark){
+     onBlack=true;
+  
+     //turn until not on black tile
+     while(onBlack){
+	counter++;
+    	RotateMotor(outputs,pow,angle);
+    	if(Sensor(IN_1)>dark){
+	    onBlack=false;
+    	}
+     }
+  }else{
+     //we must be on grey or white tile
+     onBlack=false;
+     while(!onBlack){
+	counter++;
+	RotateMotor(outputs,pow,angle);
+	if(Sensor(IN_1)<light){
+	   onBlack=true;
+	}
+     }
+
+  }
+  //return to original position
+  RotateMotor(outputs,50,-angle*counter);
+  return counter;
+
+}
+
 
 
 sub correction(){
   int left = checkPos(OUT_B);
   int right = checkPos(OUT_C);
-
-//****** we think this works, but differences in motor = problematic
-
   int newAng = abs((left-right)/2);
    //increment based on checkPos angle
    //we previously tried using 40, but it was overcorrecting, so need
    //to text with a smaller new angle
-  newAng *= 30;
+
+//this works for first part newAng *= 30;
+   newAng *= 20;
+
 
   if (left<right){
      RotateMotor(OUT_C,30,newAng);
@@ -101,12 +140,13 @@ sub startPosition(){
   Wait(1000);
 }
 
-sub crossWhiteTile(){
+sub crossWhiteTile(int speed){
   //numWhite++;
   bool onWhite = false;
   if (Sensor(IN_1)>=light) onWhite = true;
   while(onWhite){
-    OnFwd(OUT_BC,40);
+    //OnFwd(OUT_BC,speed);
+    OnFwdReg(OUT_BC,speed,OUT_REGMODE_SYNC);
     if (Sensor(IN_1)<=dark) onWhite = false;
   }
   Coast(OUT_BC);
@@ -115,32 +155,37 @@ sub crossWhiteTile(){
 }
 
 
-sub crossBlackTiles(){
+sub crossBlackTiles(int blackSpeed, int whiteSpeed){
   PlayTone(262,400);
   numBlack++;
   bool onBlack = false;
   if(Sensor(IN_1)<=dark) onBlack = true;
   while(onBlack) {
-    OnFwd(OUT_BC,40);
+   OnFwdReg(OUT_BC,blackSpeed,OUT_REGMODE_SYNC);
+    //OnFwd(OUT_BC,blackSpeed);
     if (Sensor(IN_1)>=light){
       onBlack = false;
     }
   }
+  
   if (numWhite<13){
      numWhite++;
-     crossWhiteTile();
+     crossWhiteTile(whiteSpeed);
   }
+  
+  
   OnFwd(OUT_BC,0);
+  Wait(100);
 }
     
 sub crossGrey(){
-    //need new subroutine to finish!
-    PlayTone(262,400);
-    correction();
-    crossBlackTiles();
+    numGrey++;
+    crossBlackTiles(40,40);
+    crossWhiteTile(60); //we should increase speed here and test it 
+   
+
+
 }
-
-
 
 task main(){
    SetSensorLight(IN_1); // set light sensor
@@ -148,16 +193,37 @@ task main(){
    SetSensor(IN_3,SENSOR_TOUCH);
    calibrate();
    startPosition();
-   crossWhiteTile();
+   crossWhiteTile(40);
    while(numBlack<15){
-	crossBlackTiles();
+	crossBlackTiles(40,40);
    }
-   
+//Reverse to middle of black tile
    OnRev(OUT_BC,30);
    Wait(500);
    Coast(OUT_BC);
+//rotates to face finish
    RotateMotor(OUT_C,power,angle90);
-   Wait(1000);
-   crossGrey();
-   
+   Wait(500);
+   Coast(OUT_BC);
+//reverses to middle of black tile from grey 
+   OnRevSync(OUT_BC,30,0);
+   Wait(1500);
+   Coast(OUT_BC);
+//go back to the start of the black tile
+   crossBlackTiles(-40,0);
+   crossWhiteTile(40);
+   while(numGrey<5){
+	crossGrey();
+   }
 }
+
+
+
+
+/*Reverse to middle of white tile
+   OnRev(OUT_BC,30);
+   Wait(1500);
+   Coast(OUT_BC);
+*/
+
+
