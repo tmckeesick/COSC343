@@ -1,0 +1,47 @@
+bool found = false;
+
+//assume the tower is within range of the sonar sensor
+sub findTower(){
+
+int numRotationsR = 0;
+int numRotationsL = 0;
+
+ if (SensorUS(IN_4)<30){
+   found = true;
+ }else if(SensorUS(IN_4) < 100) {
+   OnFwd(OUT_BC,25);
+   Wait(500);
+   Coast(OUT_BC);
+ }else{
+   while(SensorUS(IN_4)>100){
+     numRotationsR++;
+     RotateMotor(OUT_C,50,90);
+     Wait(500);
+     //only turn 90 degrees
+     if (numRotationsR>5){
+       RotateMotor(OUT_C,50,-90*numRotationsR);
+       OnFwdReg(OUT_BC,30,OUT_REGMODE_SYNC);
+       Wait(500);
+       OnFwd(OUT_BC,0);
+     
+       //check the left side of the robot
+       RotateMotor(OUT_B,50,90);
+       Wait(500);
+       if (numRotationsL>3){
+         RotateMotor(OUT_B,50,-90*numRotationsL);
+       }
+       break;
+     }
+   } 
+ }
+}
+
+task main(){
+ SetSensorUltrasonic(IN_4);
+ while(!found){
+ findTower();
+ }
+
+ 
+
+}
