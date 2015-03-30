@@ -11,8 +11,8 @@ int numWhite = 0;
 int numGrey = 0;
 int offSetDark=5;
 int offSetLight=10;
-int alphaL = 1; //for use with power on left motor
-int alphaR = 1; //for use with power on right motor
+int alpha = 1; //for use with power on left motor
+int beta = 1; //for use with power on right motor
 int power = 20;
 int angle90 = 360;
 int cAngle = 50;
@@ -37,8 +37,7 @@ sub calibrate() {
   Wait(7000);
 }
 
-/*********************************************************************
-//THIS ONE ONLY CHECKS FOR BLACK TILES
+ //THIS ONE ONLY CHECKS FOR BLACK TILES
 int checkPos(byte outputs){
   long angle = 40;
   int pow = 30;
@@ -47,8 +46,8 @@ int checkPos(byte outputs){
   if (Sensor(IN_1)<=dark){
      onBlack=true;
   }
-     //turn until not on black tile
-    while(onBlack){
+  //turn until not on black tile
+  while(onBlack){
 	counter++;
     	RotateMotor(outputs,pow,angle);
     	if(Sensor(IN_1)>dark){
@@ -61,7 +60,8 @@ int checkPos(byte outputs){
   return counter;
 
 }
-**************************************/
+
+/*********************************************************************
 
 int checkPos(byte outputs){
   long angle = 30; //works for first part when angle=40
@@ -69,26 +69,26 @@ int checkPos(byte outputs){
   int counter = 0;
   bool onBlack;
   if (Sensor(IN_1)<=dark){
-     onBlack=true;
+    onBlack=true;
   
-     //turn until not on black tile
-     while(onBlack){
-	counter++;
-    	RotateMotor(outputs,pow,angle);
-    	if(Sensor(IN_1)>dark){
-	    onBlack=false;
-    	}
-     }
+    //turn until not on black tile
+    while(onBlack){
+      counter++;
+      RotateMotor(outputs,pow,angle);
+      if(Sensor(IN_1)>dark){
+	       onBlack=false;
+      }
+    }
   }else{
-     //we must be on grey or white tile
-     onBlack=false;
-     while(!onBlack){
-	counter++;
-	RotateMotor(outputs,pow,angle);
-	if(Sensor(IN_1)<light){
-	   onBlack=true;
-	}
-     }
+    //we must be on grey or white tile
+    onBlack=false;
+    while(!onBlack){
+      counter++;
+      RotateMotor(outputs,pow,angle);
+      if(Sensor(IN_1)<light){
+	onBlack=true;
+      }
+    }
 
   }
   //return to original position
@@ -96,26 +96,37 @@ int checkPos(byte outputs){
   return counter;
 
 }
-
+**************************************/
 
 
 sub correction(){
+  alpha = 1;
+  beta = 1;
   int left = checkPos(OUT_B);
   int right = checkPos(OUT_C);
+  int diff = abs(left-right);
   int newAng = abs((left-right)/2);
-   //increment based on checkPos angle
-   //we previously tried using 40, but it was overcorrecting, so need
-   //to text with a smaller new angle
+  //increment based on checkPos angle
+  //we previously tried using 40, but it was overcorrecting, so need
+  //to text with a smaller new angle
 
-//this works for first part newAng *= 30;
-   newAng *= 20;
+  //this works for first part newAng *= 30;
+  newAng *= 20; 
 
 
   if (left<right){
-     RotateMotor(OUT_C,30,newAng);
+    RotateMotor(OUT_C,30,newAng);
+    if(diff > 4) {
+        alpha += 0.5;
+    }
+     
   }else{
-	RotateMotor(OUT_B,30,newAng);
+    RotateMotor(OUT_B,30,newAng);
+    if(diff > 4) {
+      beta += 0.5;
+    }
   }
+
 
 }
 
@@ -146,7 +157,9 @@ sub crossWhiteTile(int speed){
   if (Sensor(IN_1)>=light) onWhite = true;
   while(onWhite){
     //OnFwd(OUT_BC,speed);
-    OnFwdReg(OUT_BC,speed,OUT_REGMODE_SYNC);
+    //OnFwdReg(OUT_BC,speed,OUT_REGMODE_SYNC);
+    OnFwdReg(OUT_B,speed*beta,OUT_REGMODE_SYNC);
+    OnFwdReg(OUT_C,speed*alpha,OUT_REGMODE_SYNC);
     if (Sensor(IN_1)<=dark) onWhite = false;
   }
   Coast(OUT_BC);
@@ -158,11 +171,14 @@ sub crossWhiteTile(int speed){
 sub crossBlackTiles(int blackSpeed, int whiteSpeed){
   PlayTone(262,400);
   numBlack++;
+
   bool onBlack = false;
   if(Sensor(IN_1)<=dark) onBlack = true;
   while(onBlack) {
-   OnFwdReg(OUT_BC,blackSpeed,OUT_REGMODE_SYNC);
+    //OnFwdReg(OUT_BC,blackSpeed,OUT_REGMODE_SYNC);
     //OnFwd(OUT_BC,blackSpeed);
+    OnFwdReg(OUT_B,blackSpeed*beta,OUT_REGMODE_SYNC);
+    OnFwdReg(OUT_C,blackSpeed*alpha,OUT_REGMODE_SYNC);
     if (Sensor(IN_1)>=light){
       onBlack = false;
     }
@@ -171,59 +187,106 @@ sub crossBlackTiles(int blackSpeed, int whiteSpeed){
   if (numWhite<13){
      numWhite++;
      crossWhiteTile(whiteSpeed);
-  }
-  
+     }
+    
   
   OnFwd(OUT_BC,0);
   Wait(100);
 }
     
 sub crossGrey(){
-    numGrey++;
-    crossBlackTiles(40,40);
-    crossWhiteTile(60); //we should increase speed here and test it 
+  numGrey++;
+  crossBlackTiles(40,40);
+  crossWhiteTile(40); 
    
 
 
 }
 
-task main(){
-   SetSensorLight(IN_1); // set light sensor
-   SetSensor(IN_2,SENSOR_TOUCH); //need to set the touch sensors!
-   SetSensor(IN_3,SENSOR_TOUCH);
-   calibrate();
-   startPosition();
-   crossWhiteTile(40);
-   while(numBlack<15){
-	crossBlackTiles(40,40);
-   }
-//Reverse to middle of black tile
-   OnRev(OUT_BC,30);
-   Wait(500);
-   Coast(OUT_BC);
-//rotates to face finish
-   RotateMotor(OUT_C,power,angle90);
-   Wait(500);
-   Coast(OUT_BC);
-//reverses to middle of black tile from grey 
-   OnRevSync(OUT_BC,30,0);
-   Wait(1500);
-   Coast(OUT_BC);
-//go back to the start of the black tile
-   crossBlackTiles(-40,0);
-   crossWhiteTile(40);
-   while(numGrey<5){
-	crossGrey();
-   }
+sub findTower(){
+  bool found = false;
+
+
+
+  while(!found){
+    int numRotationsR = 0;
+    int numRotationsL = 0;
+    if (SensorUS(IN_4)<25){
+      found = true;
+    }else if(SensorUS(IN_4) < 100) {
+      OnFwdReg(OUT_BC,25,OUT_REGMODE_SYNC);
+      Wait(500);
+      Coast(OUT_BC);
+    }else{
+      while(SensorUS(IN_4)>100){
+        numRotationsR++;
+        RotateMotor(OUT_C,50,90);
+        Wait(500);
+        //only turn 90 degrees
+        if (numRotationsR>5){
+          RotateMotor(OUT_C,50,-90*numRotationsR);
+          OnFwdReg(OUT_BC,30,OUT_REGMODE_SYNC);
+          Wait(500);
+          OnFwd(OUT_BC,0);
+
+          break;
+        }
+      } 
+    }    
+  }
+
+  OnFwdReg(OUT_BC,90,OUT_REGMODE_SYNC);
+  Wait(800);
+  Coast(OUT_BC);
+
 }
 
+task main(){
 
 
+  SetSensorLight(IN_1); // set light sensor
+  SetSensor(IN_2,SENSOR_TOUCH); //need to set the touch sensors!
+  SetSensor(IN_3,SENSOR_TOUCH);
+  SetSensorUltrasonic(IN_4); 
 
-/*Reverse to middle of white tile
-   OnRev(OUT_BC,30);
-   Wait(1500);
-   Coast(OUT_BC);
-*/
+  calibrate();
+  startPosition();
+  ClearScreen();
 
 
+  crossWhiteTile(40);
+  while(numBlack<15){
+     crossBlackTiles(40,40);
+  }
+    
+  //Reverse to middle of black tile
+  OnRev(OUT_BC,30);
+  Wait(500);
+  Coast(OUT_BC);
+  //rotates to face finish
+  RotateMotor(OUT_C,power,angle90);
+  Wait(500);
+  Coast(OUT_BC);
+  //reverses to middle of black tile from grey 
+  OnRevSync(OUT_BC,30,0);
+  Wait(1500);
+  Coast(OUT_BC);
+  //go back to the start of the black tile
+  crossBlackTiles(-40,0);
+  crossWhiteTile(40);
+
+  OnFwdReg(OUT_BC,90,OUT_REGMODE_SYNC);
+  Wait(5500);
+  Coast(OUT_BC);
+
+  findTower();
+  Wait(300);
+
+  //for some reason we can't hear this beep...
+  PlayTone(260,600);
+  PlayTone(440,500);
+
+  
+       
+  
+}
