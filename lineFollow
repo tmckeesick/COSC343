@@ -1,0 +1,50 @@
+//right motor is B
+//left motor is C
+//light sensor is port 1
+
+int Kp=2;
+int light=0;
+int dark=0;
+int offset=0;
+int Tp=30;
+int powerB;
+int powerC;
+int Turn;
+int LightValue;
+int error=0;
+
+sub calibrate() {
+TextOut(15,LCD_LINE2,"Light?");
+until(SENSOR_2 == 1); 
+light = SENSOR_1;
+TextOut(15,LCD_LINE2," Light = ");
+NumOut(15,LCD_LINE3,light);
+
+TextOut(15,LCD_LINE5,"dark?");
+until(SENSOR_3 == 1);
+dark = SENSOR_1; //on the line
+
+TextOut(15,LCD_LINE5," dark = ");
+NumOut(15,LCD_LINE6,dark);
+Wait(7000);
+offset=(light+dark)/2;
+}
+
+
+task main(){
+SetSensorLight(IN_1);
+SetSensor(IN_2,SENSOR_TOUCH);
+SetSensor(IN_3,SENSOR_TOUCH);
+calibrate();
+
+while(true){
+LightValue=SENSOR_1;
+error=(LightValue-offset);
+Turn =(Kp*error);
+powerB= (Tp+Turn);
+powerC= (Tp-Turn);
+OnFwd(OUT_B,powerB);
+OnFwd(OUT_C,powerC);
+}
+}
+
