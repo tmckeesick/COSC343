@@ -24,18 +24,18 @@
 // global variables for calibration of reflected light sensor
 int light = 0;
 int dark = 0;
-int offSetDark=5;
-int offSetLight=10;
 
 // global variables to keep track of how
 // many black and white tiles have been crossed
 int numBlack = 0;
 int numWhite = 0;
 
+int offSetDark=5;
+int offSetLight=10;
 int alpha = 1; //for use with power on left motor
 int beta = 1; //for use with power on right motor
-int angle90 = 360;//angle that turns robot 90 degrees when applied to 1 motor
-
+int power = 20;
+int angle90 = 360;
 
 /**
  * calibrate() calibrates the light sensors to recognize
@@ -57,7 +57,7 @@ sub calibrate() {
   TextOut(15,LCD_LINE2," light = ");
   NumOut(15,LCD_LINE3,light);
 
-  TextOut(15,LCD_LINE5,"Dark?");
+  TextOut(15,LCD_LINE5,"Black?");
   until(SENSOR_3 == 1);
   dark = SENSOR_1;
   dark=dark+offSetDark;
@@ -65,30 +65,6 @@ sub calibrate() {
   TextOut(15,LCD_LINE5," dark = ");
   NumOut(15,LCD_LINE6,dark);
   Wait(7000);
-}
-
-/**
- * startPosition() moves the robot from the start tile to the 
- * first black tile, and orients the robot in the right direction
- * to move across 15 black tiles
- */
-sub startPosition(){
-  bool onBlack = false;
-  OnFwd(OUT_BC, 30);
-  while(!onBlack) {	//continuously check light sensor
-    if(Sensor(IN_1) <= dark){  //calibrated light sensor
-      numBlack++;
-      OnFwd(OUT_BC,0);//make robot stop
-      OnFwd(OUT_BC,20);//move onto tile
-      Wait(500);
-      Coast(OUT_BC);
-      onBlack = true;
-    }
-  }
-  ClearScreen();
-  RotateMotor(OUT_B,20,angle90);
-  TextOut(15,LCD_LINE5,"STAGE 1");
-  Wait(1000);
 }
 
 /**
@@ -103,17 +79,15 @@ int checkPos(byte outputs){
   int pow = 30;
   int counter = 0;
   bool onBlack;
-
   if (Sensor(IN_1)<=dark){
-    onBlack=true;
+     onBlack=true;
   }
-  
   //turn until not on black tile
   while(onBlack){
-    counter++;
-    RotateMotor(outputs,pow,angle);
-    if(Sensor(IN_1)>dark){
-      onBlack=false;
+	counter++;
+    	RotateMotor(outputs,pow,angle);
+    	if(Sensor(IN_1)>dark){
+	    onBlack=false;
     }
   }
 
@@ -137,21 +111,54 @@ sub correction(){
   int left = checkPos(OUT_B);
   int right = checkPos(OUT_C);
   int diff = abs(left-right);
-  int newAng = abs((left-right)/2)*20;
+  int newAng = abs((left-right)/2);
+  //increment based on checkPos angle
+  //we previously tried using 40, but it was overcorrecting, so need
+  //to text with a smaller new angle
 
-  //If robot turns right more than left
-  //rotate to the right
+  //this works for first part newAng *= 30;
+  newAng *= 20; 
+
+
   if (left<right){
     RotateMotor(OUT_C,30,newAng);
     if(diff > 4) {
-      alpha += 0.5;
+        alpha += 0.5;
     }
+     
   }else{
     RotateMotor(OUT_B,30,newAng);
     if(diff > 4) {
       beta += 0.5;
     }
   }
+
+
+}
+
+/**
+ * startPosition() moves the robot from the start tile to the 
+ * first black tile, and orients the robot in the right direction
+ * to move across 15 black tiles
+ */
+sub startPosition(){
+  bool onBlack = false;
+  OnFwd(OUT_BC, 30);
+  while(!onBlack) {	//continuously check light sensor
+    TextOut(15,LCD_LINE6,"Current = ");
+    NumOut(15,LCD_LINE7,SENSOR_1);
+    if(Sensor(IN_1) <= dark){  //calibrated light sensor
+      numBlack++;
+      OnFwd(OUT_BC,0);//make it stop
+      OnFwd(OUT_BC,20);//move onto tile
+      Wait(500);
+      Coast(OUT_BC);
+      //PlayTone(262,400); //beep
+      onBlack = true;
+    }
+  }
+  RotateMotor(OUT_B,power,angle90);
+  Wait(1000);
 }
 
 /**
@@ -161,9 +168,12 @@ sub correction(){
  * This subroutine takes in a integer speed to use with the motors.
  */
 sub crossWhiteTile(int speed){
+  //numWhite++;
   bool onWhite = false;
   if (Sensor(IN_1)>=light) onWhite = true;
   while(onWhite){
+    //OnFwd(OUT_BC,speed);
+    //OnFwdReg(OUT_BC,speed,OUT_REGMODE_SYNC);
     OnFwdReg(OUT_B,speed*beta,OUT_REGMODE_SYNC);
     OnFwdReg(OUT_C,speed*alpha,OUT_REGMODE_SYNC);
     if (Sensor(IN_1)<=dark) onWhite = false;
@@ -185,50 +195,23 @@ sub crossBlackTiles(int blackSpeed, int whiteSpeed){
   bool onBlack = false;
   if(Sensor(IN_1)<=dark) onBlack = true;
   while(onBlack) {
+    //OnFwdReg(OUT_BC,blackSpeed,OUT_REGMODE_SYNC);
+    //OnFwd(OUT_BC,blackSpeed);
     OnFwdReg(OUT_B,blackSpeed*beta,OUT_REGMODE_SYNC);
     OnFwdReg(OUT_C,blackSpeed*alpha,OUT_REGMODE_SYNC);
     if (Sensor(IN_1)>=light){
       onBlack = false;
     }
   }
-
-  //Keeps track of number of white tiles so that the robot stops at the 15th black tile
+  
   if (numWhite<13){
-    numWhite++;
-    crossWhiteTile(whiteSpeed);
-  }
+     numWhite++;
+     crossWhiteTile(whiteSpeed);
+     }
     
+  
   OnFwd(OUT_BC,0);
   Wait(100);
-}
-
-/**
- * stage2() rotates the robot and moves it forward 
- * so that it is within range to sense the tower with the 
- * sonar sensor
- */
-sub stage2(){
-  ClearScreen();
-  TextOut(15,LCD_LINE5,"STAGE 2");
-  //Reverse to middle of black tile
-  OnRev(OUT_BC,30);
-  Wait(500);
-  Coast(OUT_BC);
-  //rotates to face finish
-  RotateMotor(OUT_C,20,angle90);
-  Wait(500);
-  Coast(OUT_BC);
-  //reverses to middle of black tile from grey 
-  OnRevSync(OUT_BC,30,0);
-  Wait(1500);
-  Coast(OUT_BC);
-  //go back to the start of the black tile
-  crossBlackTiles(-40,0);
-  crossWhiteTile(40);
-  //sprint to the finish tile
-  OnFwdReg(OUT_BC,90,OUT_REGMODE_SYNC);
-  Wait(5500);
-  Coast(OUT_BC);
 }
 
 
@@ -240,47 +223,37 @@ sub stage2(){
  * the tower until it is close enough to push off the tile.
  */
 sub findTower(){
-  ClearScreen();
-  TextOut(15,LCD_LINE5,"STAGE 3");
   bool found = false;
+
+
+
   while(!found){
     int numRotationsR = 0;
     int numRotationsL = 0;
-
-    //don't rotate or move if the tower is within 25cm
     if (SensorUS(IN_4)<25){
-      found = true;   
-    }
-
-    //If the tower is within 100cm inch towards it
-    else if(SensorUS(IN_4) < 100) {
+      found = true;
+    }else if(SensorUS(IN_4) < 100) {
       OnFwdReg(OUT_BC,25,OUT_REGMODE_SYNC);
       Wait(500);
       Coast(OUT_BC);
-    }
-
-    //Rotate to find the tower. If the tower is not found, returns
-    //to original position and moves forward a bit -- hopefully closer to the tower
-    else{
+    }else{
       while(SensorUS(IN_4)>100){
         numRotationsR++;
         RotateMotor(OUT_C,50,90);
         Wait(500);
-	
         //only turn 90 degrees
         if (numRotationsR>5){
-          RotateMotor(OUT_C,50,-90*numRotationsR); //return to original orientation
+          RotateMotor(OUT_C,50,-90*numRotationsR);
           OnFwdReg(OUT_BC,30,OUT_REGMODE_SYNC);
           Wait(500);
           OnFwd(OUT_BC,0);
+
           break;
         }
       } 
-    }
-    TextOut(15,LCD_LINE5,"TOWER FOUND!");
+    }    
   }
 
-  //Robot has found the tower, and will push it off the tile
   OnFwdReg(OUT_BC,90,OUT_REGMODE_SYNC);
   Wait(800);
   Coast(OUT_BC);
@@ -289,25 +262,50 @@ sub findTower(){
 
 task main(){
 
-  //Set the light sensor, touch sensors, and sonar sensor
-  SetSensorLight(IN_1);
+
+  SetSensorLight(IN_1); // set light sensor
   SetSensor(IN_2,SENSOR_TOUCH); //need to set the touch sensors!
   SetSensor(IN_3,SENSOR_TOUCH);
   SetSensorUltrasonic(IN_4); 
 
   calibrate();
-  //Begin stage 1
   startPosition();
+  ClearScreen();
+
+
   crossWhiteTile(40);
   while(numBlack<15){
-    crossBlackTiles(40,40);
+     crossBlackTiles(40,40);
   }
-  
-  //stage 1 complete, begin stage 2
-  stage2();
+    
+  //Reverse to middle of black tile
+  OnRev(OUT_BC,30);
+  Wait(500);
+  Coast(OUT_BC);
+  //rotates to face finish
+  RotateMotor(OUT_C,power,angle90);
+  Wait(500);
+  Coast(OUT_BC);
+  //reverses to middle of black tile from grey 
+  OnRevSync(OUT_BC,30,0);
+  Wait(1500);
+  Coast(OUT_BC);
+  //go back to the start of the black tile
+  crossBlackTiles(-40,0);
+  crossWhiteTile(40);
 
-  //stage 2 complete, begin stage 3 
+  OnFwdReg(OUT_BC,90,OUT_REGMODE_SYNC);
+  Wait(5500);
+  Coast(OUT_BC);
+
   findTower();
-  TextOut(15,LCD_LINE7,"PROGRAM COMPLETE!");
-  Wait(5000);
+  Wait(300);
+
+  //for some reason we can't hear this beep...
+  PlayTone(260,600);
+  PlayTone(440,500);
+
+  
+       
+  
 }
